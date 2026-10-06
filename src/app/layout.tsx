@@ -11,13 +11,13 @@ const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600"
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: {
-    default: "PRESSKIT — Your music deserves more than a link-in-bio",
+    default: "PRESSKIT — Your artist website, live in 5 minutes",
     template: "%s · PRESSKIT",
   },
-  description: "Build a professional artist website and electronic press kit in minutes.",
+  description: "Music, videos, shows, socials, booking, and an EPK. One link. No web design required.",
   openGraph: {
     title: "PRESSKIT",
-    description: "Build a professional artist website and electronic press kit in minutes.",
+    description: "Your artist website, live in 5 minutes.",
     siteName: "PRESSKIT",
     type: "website",
   },

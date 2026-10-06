@@ -6,9 +6,9 @@ import { logoutAction } from "@/app/actions";
 
 const links = [
   { href: "/dashboard", label: "Home" },
-  { href: "/dashboard/site", label: "Site" },
+  { href: "/dashboard/site", label: "My page" },
   { href: "/dashboard/content", label: "Content" },
-  { href: "/dashboard/analytics", label: "Analytics" },
+  { href: "/dashboard/analytics", label: "Audience" },
   { href: "/dashboard/account", label: "Account" },
 ];
 
@@ -37,7 +37,7 @@ export function DashboardNav({ plan }: { plan: string }) {
         {links.map((link) => {
           const active = pathname === link.href;
           return (
-            <Link key={link.href} href={link.href} className={`px-1 py-3 text-center text-[11px] uppercase tracking-[0.12em] ${active ? "text-accent" : "text-muted"}`}>
+            <Link key={link.href} href={link.href} className={`px-1 py-3 text-center text-[10px] uppercase tracking-[0.08em] ${active ? "text-accent" : "text-muted"}`}>
               {link.label}
             </Link>
           );

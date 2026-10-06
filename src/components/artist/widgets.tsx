@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { AnalyticsEventType } from "@/types";
@@ -61,7 +62,16 @@ export function TrackedLink({
   );
 }
 
-export function CopyButton({ value, children, className }: { value: string; children: React.ReactNode; className?: string }) {
+function postProduct(name: string, slug?: string) {
+  const body = JSON.stringify({ name, slug });
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/product", new Blob([body], { type: "application/json" }));
+    return;
+  }
+  void fetch("/api/product", { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true });
+}
+
+export function CopyButton({ value, children, className, product }: { value: string; children: React.ReactNode; className?: string; product?: "artist_copied_link" }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -69,12 +79,48 @@ export function CopyButton({ value, children, className }: { value: string; chil
       className={className}
       onClick={async () => {
         await navigator.clipboard.writeText(value);
+        if (product) {
+          postProduct(product);
+          postProduct("bio_link_intent");
+        }
         setCopied(true);
         window.setTimeout(() => setCopied(false), 1600);
       }}
     >
       {copied ? "Copied" : children}
     </button>
+  );
+}
+
+export function ShareLinkButton({ url, title, className, children }: { url: string; title: string; className?: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={async () => {
+        postProduct("artist_shared_page");
+        if (navigator.share) await navigator.share({ title, url }).catch(() => undefined);
+        else await navigator.clipboard.writeText(url);
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function MadeWithPresskit({ slug }: { slug: string }) {
+  return (
+    <div className="px-5 py-10 text-center">
+      <p className="text-[11px] uppercase tracking-[0.28em] opacity-70">Made with PRESSKIT</p>
+      <p className="mt-2 text-sm opacity-60">Your artist website in 5 minutes.</p>
+      <Link
+        href={`/signup?ref=${encodeURIComponent(slug)}`}
+        className="mt-5 inline-block border border-current/30 px-4 py-3 text-xs uppercase tracking-[0.18em]"
+        onClick={() => postProduct("made_with_presskit_clicked", slug)}
+      >
+        Create yours free
+      </Link>
+    </div>
   );
 }
 

@@ -6,7 +6,9 @@ export type Plan = 'free' | 'pro' | 'lifetime';
 
 export type ThemeName = 'editorial' | 'night' | 'minimal' | 'neon';
 
-export type ReleaseType = 'single' | 'ep' | 'mixtape' | 'album';
+export type ReleaseType = 'single' | 'ep' | 'mixtape' | 'album' | 'other';
+
+export type ReleaseStatus = 'released' | 'announced' | 'prerelease';
 
 export type PublishStatus = 'draft' | 'published';
 
@@ -93,6 +95,10 @@ export interface Release {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  /** Future prerelease fields. Missing values mean the release is already out. */
+  release_status?: ReleaseStatus;
+  announcement_date?: string | null;
+  prerelease_url?: string | null;
 }
 
 export interface ReleaseLink {
@@ -247,6 +253,7 @@ export interface CompletenessItem {
   label: string;
   completed: boolean;
   recommendation?: string;
+  href?: string;
 }
 
 export interface ProfileCompleteness {

@@ -1,6 +1,6 @@
 # PRESSKIT
 
-PRESSKIT turns an independent artist's information into a public website, an industry EPK, and a downloadable PDF. The promise: your music deserves more than a link-in-bio.
+PRESSKIT is an artist's internet profile. Enter the career once. The same profile becomes the public website, the bio link, and the EPK. The promise: your artist website, live in about five minutes. No web design required.
 
 This repository runs without Supabase or Stripe. Demo mode uses a local JSON store and a finished fictional artist, Jaylen Saint. Point the same app at Supabase and Stripe when you are ready to charge.
 
@@ -73,7 +73,7 @@ If Supabase URL or anon key is missing or still a placeholder, the app stays in 
 ## Supabase
 
 1. Create a project.
-2. Run `supabase/migrations/20261006000000_init.sql` in the SQL editor.
+2. Run `supabase/migrations/20261006000000_init.sql`, then `supabase/migrations/20261006120000_profile_flow.sql`, in the SQL editor.
 3. In Authentication, decide whether email confirmation is on. If it is on, signup asks the artist to confirm before onboarding.
 4. Put the URL, anon key, and service role key in `.env.local`.
 5. Set `NEXT_PUBLIC_DEMO_MODE=false`.
@@ -96,6 +96,8 @@ Local development without Stripe: sign in and use **Development billing** on Acc
 
 Set `ADMIN_USER_IDS` to your Supabase user id (or the demo user id after you copy it from `/admin` once listed). Open `/admin` and grant `pro` or `lifetime`. That path uses the service role in Supabase mode and the local store in demo mode. It is not a client-side flag.
 
+The same screen issues Founding Artist codes (`FOUNDING-XXXX`). Redemption happens on Account and is checked on the server: active, unexpired, under the redemption cap, and not already used by that account. A valid code sets `plan_source` to `founding` and grants Pro or Lifetime. The dashboard thanks founding artists. There is no public badge.
+
 ## Custom domains
 
 Pro accounts can submit a hostname from Account. The `domains` table stores `pending`. Automated Vercel domain attachment is intentionally not wired up. Connect the domain with the artist, then mark it active in the database when DNS is verified. Do not pretend a domain works before that.
@@ -108,8 +110,8 @@ Do not impersonate an artist with a shared password. The safe version is an `art
 
 Defined in `src/config/plans.ts`. UI should call `canUseAnalytics`, `canDownloadPDF`, `canRemoveBranding`, and `canUsePremiumTheme` instead of scattering plan names.
 
-- Free: site, basic themes (Editorial, Night, Minimal), music and social links, basic EPK page, PRESSKIT credit.
-- Pro: $9.99/month or $79/year. Neon, no credit, analytics, PDF, custom-domain request, higher media limits.
+- Free: site, basic themes (Clean, Dark, Minimal), music and social links, basic EPK page, a 7-day audience snapshot, PRESSKIT credit.
+- Pro: $9.99/month or $79/year. Bold vibe, no credit, 30- and 90-day audience history, PDF, custom-domain request, higher media limits.
 - Founding Artist: one-time, same entitlements as Pro.
 
 Free gallery limit is 6 images, 5 releases, 3 videos, 5 highlights.
@@ -124,9 +126,15 @@ Artist sites live at `/a/[slug]` so they do not collide with app routes. Old slu
 
 ## Analytics
 
-Public pages post to `/api/analytics`. Stored fields: event type, optional label, random visitor id from `localStorage`, and referrer hostname. No IP address and no fingerprint. Unique visitors are distinct visitor ids. Dashboard charts cover 7, 30, and 90 days for Pro and Founding Artist.
+Public pages post to `/api/analytics`. Stored fields: event type, optional label, random visitor id from `localStorage`, and referrer hostname. No IP address and no fingerprint. Unique visitors are distinct visitor ids. Every artist sees a 7-day audience story (visits, listens, watches, Instagram, booking, fan action rate). Pro and Founding Artist also see 30 and 90 days and referrer hostnames.
 
-Product events (`signup_started`, `signup_completed`, `site_published`, `release_added`, `upgrade_started`, `upgrade_completed`) are structured server logs in `src/lib/product-analytics.ts`. Swap that function for a vendor later. Transactional email is the same idea in `src/server/email.ts`: welcome is logged until you connect a provider. Password reset is handled by Supabase Auth.
+Free pages show “Made with PRESSKIT / Create yours free,” linking to `/signup?ref={slug}`. The proxy stores that slug in an httpOnly cookie for 30 days. Signup saves `referred_by_slug`, `referral_source`, and `referred_at`. It does not expose the other artist’s private data.
+
+Product events (onboarding, publish time, referral, founding redemption, upgrades, public page and EPK views) are structured server logs and, in demo mode, rows in the local store. In Supabase mode they insert with the service role into `product_events`, which has no client policies. Copying the public URL also records `bio_link_intent`. Transactional email is the same idea in `src/server/email.ts`: welcome is logged until you connect a provider. Password reset is handled by Supabase Auth.
+
+`src/lib/optimization.ts` is a deterministic checklist (missing booking contact, bio, featured release, live video, and so on). `FutureAIArtistOptimizationService` throws until a model exists. `src/lib/score.ts` can explain completeness, industry readiness, fan conversion, discoverability, and brand. Fan conversion stays empty below 10 visitors. It never ranks an artist against other artists.
+
+Releases can be `released`, `announced`, or `prerelease`, with an announcement date and a URL. The public page says “Coming” and links that URL. It does not invent a presave button.
 
 ## Deployment
 
@@ -139,7 +147,7 @@ Recommended Supabase backups: enable Point-in-Time Recovery on the paid plan, or
 - Dashboard, onboarding, and admin routes are gated in `src/proxy.ts` and again in server actions.
 - Zod validates inputs. URLs must be `http` or `https` with no credentials. User text is rendered as text, not HTML.
 - Images are sniffed for JPEG, PNG, or WebP magic bytes, capped at 5MB, and stored under a generated filename.
-- RLS is the real boundary. The service role is limited to webhooks, admin plan grants, admin directory, and account deletion.
+- RLS is the real boundary. The service role is limited to webhooks, admin plan grants, founding codes, product events, admin directory, and account deletion.
 - Do not commit `.env.local`.
 
 ## Project map

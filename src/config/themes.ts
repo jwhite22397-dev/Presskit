@@ -7,6 +7,7 @@ import { ThemeName } from '@/types';
 export interface ThemeConfig {
   id: ThemeName;
   name: string;
+  vibe: string;
   description: string;
   preview: string;
   isPremium: boolean;
@@ -41,6 +42,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   editorial: {
     id: 'editorial',
     name: 'Editorial',
+    vibe: 'Clean',
     description: 'Magazine-style layout with bold typography and strong composition',
     preview: '/themes/editorial.jpg',
     isPremium: false,
@@ -73,6 +75,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   night: {
     id: 'night',
     name: 'Night',
+    vibe: 'Dark',
     description: 'Dark, concert-oriented design with large imagery',
     preview: '/themes/night.jpg',
     isPremium: false,
@@ -105,6 +108,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   minimal: {
     id: 'minimal',
     name: 'Minimal',
+    vibe: 'Minimal',
     description: 'Clean and professional with plenty of whitespace',
     preview: '/themes/minimal.jpg',
     isPremium: false,
@@ -137,6 +141,7 @@ export const THEMES: Record<ThemeName, ThemeConfig> = {
   neon: {
     id: 'neon',
     name: 'Neon',
+    vibe: 'Bold',
     description: 'Modern nightlife aesthetic with vibrant energy',
     preview: '/themes/neon.jpg',
     isPremium: true,

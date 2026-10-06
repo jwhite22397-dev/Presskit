@@ -25,7 +25,11 @@ export interface DemoUser {
   password_hash: string;
   display_name: string | null;
   plan: Plan;
-  plan_source: "default" | "admin" | "simulated" | "stripe";
+  plan_source: "default" | "admin" | "simulated" | "stripe" | "founding";
+  referred_by_slug: string | null;
+  referral_source: string | null;
+  referred_at: string | null;
+  onboarding_started_at: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string | null;
@@ -60,6 +64,32 @@ export interface SupportMessage {
   created_at: string;
 }
 
+export interface ProductEventRecord {
+  id: string;
+  name: string;
+  properties: Record<string, string | number | boolean | null>;
+  created_at: string;
+}
+
+export interface FoundingCode {
+  id: string;
+  code: string;
+  entitlement: "pro" | "lifetime";
+  max_redemptions: number;
+  redemption_count: number;
+  expires_at: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface FoundingRedemption {
+  id: string;
+  code_id: string;
+  user_id: string;
+  redeemed_at: string;
+}
+
 export interface AppState {
   users: DemoUser[];
   sites: ArtistSite[];
@@ -76,6 +106,9 @@ export interface AppState {
   redirects: SlugRedirect[];
   domains: DomainRequest[];
   messages: SupportMessage[];
+  productEvents: ProductEventRecord[];
+  foundingCodes: FoundingCode[];
+  foundingRedemptions: FoundingRedemption[];
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "demo-store.json");
@@ -161,6 +194,10 @@ async function seedState(): Promise<AppState> {
         stripe_customer_id: null,
         stripe_subscription_id: null,
         subscription_status: "active",
+        referred_by_slug: null,
+        referral_source: null,
+        referred_at: null,
+        onboarding_started_at: now,
         created_at: now,
         updated_at: now,
       },
@@ -179,20 +216,44 @@ async function seedState(): Promise<AppState> {
     redirects: [],
     domains: [],
     messages: [],
+    productEvents: [],
+    foundingCodes: [],
+    foundingRedemptions: [],
   };
+}
+
+function normalize(state: AppState): AppState {
+  state.productEvents ??= [];
+  state.foundingCodes ??= [];
+  state.foundingRedemptions ??= [];
+  state.messages ??= [];
+  state.domains ??= [];
+  state.redirects ??= [];
+  for (const release of state.releases) {
+    release.release_status ??= "released";
+    if (release.announcement_date === undefined) release.announcement_date = null;
+    if (release.prerelease_url === undefined) release.prerelease_url = null;
+  }
+  for (const user of state.users) {
+    if (user.referred_by_slug === undefined) user.referred_by_slug = null;
+    if (user.referral_source === undefined) user.referral_source = null;
+    if (user.referred_at === undefined) user.referred_at = null;
+    if (user.onboarding_started_at === undefined) user.onboarding_started_at = user.created_at;
+  }
+  return state;
 }
 
 async function loadState(): Promise<AppState> {
   if (memory) return memory;
   try {
     const raw = await readFile(STORE_PATH, "utf8");
-    memory = JSON.parse(raw) as AppState;
+    memory = normalize(JSON.parse(raw) as AppState);
     return memory;
   } catch {
     const seeded = await seedState();
     await mkdir(path.dirname(STORE_PATH), { recursive: true });
     await writeFile(STORE_PATH, JSON.stringify(seeded, null, 2));
-    memory = seeded;
+    memory = normalize(seeded);
     return memory;
   }
 }

@@ -21,6 +21,9 @@ import type {
   Video,
 } from "@/types";
 import { hostnameFromReferrer } from "@/lib/urls";
+import { validateSlug } from "@/lib/slug";
+import { startOfRange } from "@/lib/analytics";
+import { trackProductEvent } from "@/lib/product-analytics";
 import { createServerSupabase, createServiceSupabase } from "@/lib/supabase/server";
 import { hydrate, nextOrder, readState, updateState, type AppState } from "@/server/demo-store";
 
@@ -56,7 +59,7 @@ function emptySite(userId: string, name: string, plan: Plan): ArtistSite {
     booking_email: null,
     management_email: null,
     press_email: null,
-    theme: "editorial",
+    theme: "night",
     accent_color: "theme",
     font_pairing: "editorial",
     section_order: SECTION_ORDER,
@@ -241,6 +244,66 @@ export async function changeSlug(userId: string, slug: string) {
   return { ok: true as const };
 }
 
+export async function inspectSlug(userId: string, raw: string) {
+  const parsed = validateSlug(raw);
+  if (!parsed.ok) return { ok: true as const, status: "invalid" as const, reason: parsed.reason };
+  const slug = parsed.slug;
+  if (isDemoMode()) {
+    const state = await readState();
+    const site = owned(state, userId);
+    if (site?.slug === slug) return { ok: true as const, status: "yours" as const, slug };
+    const taken = state.sites.some((item) => item.slug === slug) || state.redirects.some((item) => item.from_slug === slug);
+    return { ok: true as const, status: taken ? "taken" as const : "available" as const, slug };
+  }
+  const supabase = await createServerSupabase();
+  const { data: mine } = await supabase.from("artist_sites").select("slug").eq("user_id", userId).maybeSingle();
+  if (mine?.slug === slug) return { ok: true as const, status: "yours" as const, slug };
+  const { data: existing } = await supabase.from("artist_sites").select("id").eq("slug", slug).maybeSingle();
+  if (existing) return { ok: true as const, status: "taken" as const, slug };
+  const { data: redirect } = await supabase.from("slug_redirects").select("id").eq("from_slug", slug).maybeSingle();
+  return { ok: true as const, status: redirect ? "taken" as const : "available" as const, slug };
+}
+
+export async function saveListeningLinks(userId: string, plan: Plan, links: { platform: string; url: string }[]) {
+  if (!links.length) return { ok: true as const };
+  let title = "Music";
+  let current: (Release & { links: ReleaseLink[] }) | undefined;
+  if (isDemoMode()) {
+    const state = await readState();
+    const site = owned(state, userId);
+    if (!site) return { ok: false as const, error: "Artist profile not found." };
+    title = site.artist_name || title;
+    const releases = state.releases.filter((item) => item.site_id === site.id);
+    const found = releases.find((item) => item.is_featured) ?? releases[0];
+    if (found) current = { ...found, links: state.releaseLinks.filter((link) => link.release_id === found.id) };
+  } else {
+    const artist = await getOwnedArtist(userId, plan, null);
+    title = artist.site.artist_name || title;
+    current = artist.releases.find((item) => item.is_featured) ?? artist.releases[0];
+  }
+  const merged = (current?.links ?? []).map((link) => ({ platform: link.platform, url: link.url }));
+  for (const link of links) {
+    if (!merged.some((item) => item.platform === link.platform && item.url === link.url)) merged.push(link);
+  }
+  return saveRelease(userId, plan, {
+    id: current?.id,
+    title: current?.title || title,
+    type: current?.type || "single",
+    release_date: current?.release_date ?? null,
+    description: current?.description ?? null,
+    is_featured: true,
+    cover_url: current?.cover_url,
+    release_status: current?.release_status ?? "released",
+    announcement_date: current?.announcement_date ?? null,
+    prerelease_url: current?.prerelease_url ?? null,
+    links: merged,
+  });
+}
+
+export async function setPortrait(userId: string, url: string) {
+  return patchOwnedSite(userId, { profile_image_url: url, hero_image_url: url });
+}
+
 export async function setPublished(userId: string, published: boolean) {
   if (isDemoMode()) {
     return updateState((state) => {
@@ -310,6 +373,9 @@ export async function saveRelease(userId: string, plan: Plan, input: Omit<Releas
           release_date: input.release_date,
           description: input.description,
           is_featured: Boolean(input.is_featured),
+          release_status: input.release_status ?? "released",
+          announcement_date: input.announcement_date ?? null,
+          prerelease_url: input.prerelease_url ?? null,
           sort_order: nextOrder(state.releases.filter((item) => item.site_id === site.id)),
           created_at: now,
           updated_at: now,
@@ -322,6 +388,9 @@ export async function saveRelease(userId: string, plan: Plan, input: Omit<Releas
         release.description = input.description;
         release.is_featured = Boolean(input.is_featured);
         if (input.cover_url !== undefined) release.cover_url = input.cover_url;
+        if (input.release_status) release.release_status = input.release_status;
+        if (input.announcement_date !== undefined) release.announcement_date = input.announcement_date;
+        if (input.prerelease_url !== undefined) release.prerelease_url = input.prerelease_url;
         release.updated_at = now;
       }
       if (release.is_featured) {
@@ -347,7 +416,7 @@ export async function saveRelease(userId: string, plan: Plan, input: Omit<Releas
   return supabaseSaveRelease(userId, input);
 }
 
-async function supabaseSaveRelease(userId: string, input: { id?: string; title: string; type: Release["type"]; release_date: string | null; description: string | null; is_featured?: boolean; cover_url?: string | null; links: { platform: string; url: string }[] }) {
+async function supabaseSaveRelease(userId: string, input: { id?: string; title: string; type: Release["type"]; release_date: string | null; description: string | null; is_featured?: boolean; cover_url?: string | null; release_status?: Release["release_status"]; announcement_date?: string | null; prerelease_url?: string | null; links: { platform: string; url: string }[] }) {
   const supabase = await createServerSupabase();
   const { data: site } = await supabase.from("artist_sites").select("id").eq("user_id", userId).maybeSingle();
   if (!site) return { ok: false as const, error: "Artist profile not found." };
@@ -360,6 +429,9 @@ async function supabaseSaveRelease(userId: string, input: { id?: string; title: 
       description: input.description,
       is_featured: Boolean(input.is_featured),
       ...(input.cover_url !== undefined ? { cover_url: input.cover_url } : {}),
+      ...(input.release_status ? { release_status: input.release_status } : {}),
+      ...(input.announcement_date !== undefined ? { announcement_date: input.announcement_date } : {}),
+      ...(input.prerelease_url !== undefined ? { prerelease_url: input.prerelease_url } : {}),
     }).eq("id", releaseId).eq("site_id", site.id);
     if (error) return { ok: false as const, error: error.message };
     await supabase.from("release_links").delete().eq("release_id", releaseId);
@@ -373,6 +445,9 @@ async function supabaseSaveRelease(userId: string, input: { id?: string; title: 
       description: input.description,
       is_featured: Boolean(input.is_featured),
       cover_url: input.cover_url ?? null,
+      release_status: input.release_status ?? "released",
+      announcement_date: input.announcement_date ?? null,
+      prerelease_url: input.prerelease_url ?? null,
       sort_order: count ?? 0,
     }).select("id").single();
     if (error || !data) return { ok: false as const, error: error?.message ?? "Could not save release." };
@@ -689,6 +764,7 @@ export async function recordEvent(input: { slug: string; eventType: AnalyticsEve
       });
       if (state.events.length > 20000) state.events = state.events.slice(-15000);
     });
+    noteProductView(input.slug, input.eventType);
     return;
   }
   const supabase = await createServerSupabase();
@@ -700,21 +776,29 @@ export async function recordEvent(input: { slug: string; eventType: AnalyticsEve
     event_data: { visitor_id: visitorId, label },
     referrer: hostnameFromReferrer(input.referrer ?? null),
   });
+  noteProductView(input.slug, input.eventType);
+}
+
+function noteProductView(slug: string, eventType: AnalyticsEventType) {
+  if (eventType === "page_view") trackProductEvent("artist_page_viewed", { slug });
+  if (eventType === "epk_view") trackProductEvent("epk_viewed", { slug });
 }
 
 export async function analyticsForUser(userId: string, plan: Plan) {
-  if (!isPro(plan)) return { ok: false as const, error: "Analytics is a Pro feature." };
+  const days = isPro(plan) ? 90 : 7;
+  const since = startOfRange(days);
   if (isDemoMode()) {
     const state = await readState();
     const site = owned(state, userId);
     if (!site) return { ok: false as const, error: "Artist profile not found." };
-    return { ok: true as const, events: state.events.filter((event) => event.site_id === site.id) };
+    return {
+      ok: true as const,
+      events: state.events.filter((event) => event.site_id === site.id && new Date(event.created_at) >= since),
+    };
   }
   const supabase = await createServerSupabase();
   const { data: site } = await supabase.from("artist_sites").select("id").eq("user_id", userId).maybeSingle();
   if (!site) return { ok: false as const, error: "Artist profile not found." };
-  const since = new Date();
-  since.setUTCDate(since.getUTCDate() - 90);
   const { data, error } = await supabase.from("analytics_events").select("*").eq("site_id", site.id).gte("created_at", since.toISOString()).limit(10000);
   if (error) return { ok: false as const, error: error.message };
   return { ok: true as const, events: (data ?? []) as import("@/types").AnalyticsEvent[] };

@@ -20,8 +20,9 @@ import {
 
 const tabs = ["Music", "Videos", "Shows", "Press", "Photos", "Highlights", "Links"] as const;
 
-export function ContentStudio({ data }: { data: ArtistData }) {
-  const [tab, setTab] = useState<(typeof tabs)[number]>("Music");
+export function ContentStudio({ data, initialTab }: { data: ArtistData; initialTab?: string }) {
+  const starting = tabs.find((item) => item.toLowerCase() === initialTab?.toLowerCase()) ?? "Music";
+  const [tab, setTab] = useState<(typeof tabs)[number]>(starting);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -50,6 +51,7 @@ export function ContentStudio({ data }: { data: ArtistData }) {
 
       {tab === "Music" ? (
         <section className="grid gap-6">
+          <h2 className="text-lg">New release</h2>
           {data.releases.length === 0 ? <Empty title="No music yet" body="Add a single, EP, mixtape, or album with the links you already have." /> : null}
           <ul className="grid gap-3">
             {data.releases.map((release) => (
@@ -67,24 +69,31 @@ export function ContentStudio({ data }: { data: ArtistData }) {
               const url = String(body.get(platform) ?? "").trim();
               return url ? [{ platform, url }] : [];
             });
+            const other = String(body.get("other") ?? "").trim();
+            if (other) links.push({ platform: "other", url: other });
             run(() => saveReleaseAction({
               title: body.get("title"),
               type: body.get("type"),
               release_date: body.get("release_date"),
               description: body.get("description"),
               is_featured: body.get("is_featured") === "on",
+              release_status: body.get("not_out") === "on" ? "announced" : "released",
+              prerelease_url: body.get("announcement_url"),
               links,
             }), form);
           }}>
             <input name="title" required placeholder="Title" className="border border-line bg-transparent px-3 py-3" />
-            <select name="type" className="border border-line bg-black px-3 py-3"><option value="single">Single</option><option value="ep">EP</option><option value="mixtape">Mixtape</option><option value="album">Album</option></select>
+            <select name="type" className="border border-line bg-black px-3 py-3"><option value="single">Single</option><option value="ep">EP</option><option value="mixtape">Mixtape</option><option value="album">Album</option><option value="other">Other</option></select>
             <input name="release_date" type="date" className="border border-line bg-transparent px-3 py-3" />
             <textarea name="description" placeholder="Description, optional" className="border border-line bg-transparent px-3 py-3" />
             {["spotify", "apple", "youtube", "soundcloud", "bandcamp"].map((platform) => (
               <input key={platform} name={platform} placeholder={`${platform} URL`} className="border border-line bg-transparent px-3 py-3" />
             ))}
-            <label className="text-sm"><input type="checkbox" name="is_featured" className="mr-2" />Featured release</label>
-            <button className="justify-self-start bg-accent px-4 py-2 text-sm text-black">Add release</button>
+            <input name="other" placeholder="Other listening link" className="border border-line bg-transparent px-3 py-3" />
+            <label className="text-sm"><input type="checkbox" name="not_out" className="mr-2" />Not out yet</label>
+            <input name="announcement_url" placeholder="Announcement link, optional" className="border border-line bg-transparent px-3 py-3" />
+            <label className="text-sm"><input type="checkbox" name="is_featured" className="mr-2" />Feature on my page</label>
+            <button className="justify-self-start bg-accent px-4 py-3 text-sm text-black">Save release</button>
           </form>
         </section>
       ) : null}

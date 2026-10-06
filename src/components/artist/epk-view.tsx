@@ -3,6 +3,8 @@ import type { PublicArtistData } from "@/lib/serialize";
 import { artistUrl, formatDate } from "@/lib/utils";
 import { splitShows } from "@/lib/shows";
 import { canDownloadPDF } from "@/config/plans";
+import { MadeWith } from "@/components/artist/sections";
+import { releaseEyebrow, isUnreleased } from "@/lib/releases";
 import { AnalyticsBeacon, CopyButton, TrackedLink } from "@/components/artist/widgets";
 import { PLATFORM_LABELS } from "@/components/artist/content";
 
@@ -56,7 +58,10 @@ export function EpkView({ data, preview = false }: { data: PublicArtistData; pre
               {featured.cover_url ? <img src={featured.cover_url} alt="" className="h-24 w-24 object-cover" /> : null}
               <div>
                 <p className="text-2xl" style={{ fontFamily: "var(--font-instrument), serif" }}>{featured.title}</p>
-                <p className="text-sm uppercase tracking-[0.16em] text-neutral-500">{featured.type}</p>
+                <p className="text-sm uppercase tracking-[0.16em] text-neutral-500">{releaseEyebrow(featured)}</p>
+                {isUnreleased(featured) && featured.prerelease_url ? (
+                  <TrackedLink slug={site.slug} href={featured.prerelease_url} eventType="music_click" label={featured.title} className="mt-2 inline-block text-sm underline">Details</TrackedLink>
+                ) : null}
                 <div className="mt-3 flex flex-wrap gap-3 text-sm">
                   {featured.links.map((link) => (
                     <TrackedLink key={link.id} slug={site.slug} href={link.url} eventType="music_click" label={PLATFORM_LABELS[link.platform] ?? link.platform} className="underline">
@@ -97,15 +102,20 @@ export function EpkView({ data, preview = false }: { data: PublicArtistData; pre
           </section>
         ) : null}
 
-        <section className="border-t border-black/10 py-10">
-          <h2 className="text-[11px] uppercase tracking-[0.28em] text-neutral-500">Contact</h2>
-          <div className="mt-4 grid gap-4 text-sm md:grid-cols-3">
-            {site.booking_email ? <p>Booking<br />{site.booking_email}</p> : null}
-            {site.management_email ? <p>Management<br />{site.management_email}</p> : null}
-            {site.press_email ? <p>Press<br />{site.press_email}</p> : null}
-          </div>
-          <p className="mt-8 text-xs text-neutral-500">{artistUrl(site.slug)}</p>
-        </section>
+        {site.booking_email || site.management_email || site.press_email ? (
+          <section className="border-t border-black/10 py-10">
+            <h2 className="text-[11px] uppercase tracking-[0.28em] text-neutral-500">Contact</h2>
+            <div className="mt-4 grid gap-4 text-sm md:grid-cols-3">
+              {site.booking_email ? <p>Booking<br />{site.booking_email}</p> : null}
+              {site.management_email ? <p>Management<br />{site.management_email}</p> : null}
+              {site.press_email ? <p>Press<br />{site.press_email}</p> : null}
+            </div>
+            <p className="mt-8 text-xs text-neutral-500">{artistUrl(site.slug)}</p>
+          </section>
+        ) : (
+          <p className="border-t border-black/10 py-8 text-xs text-neutral-500">{artistUrl(site.slug)}</p>
+        )}
+        <MadeWith plan={data.plan} slug={site.slug} />
       </div>
     </article>
   );

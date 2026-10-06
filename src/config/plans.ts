@@ -47,6 +47,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
       'Social media links',
       'Artist bio',
       'Basic EPK page',
+      '7-day audience snapshot',
       'PRESSKIT branding',
     ],
   },
@@ -63,7 +64,7 @@ export const PLANS: Record<Plan, PlanConfig> = {
       'All Free features',
       'Premium themes',
       'Remove PRESSKIT branding',
-      'Visitor analytics',
+      'Extended audience history',
       'Downloadable PDF EPK',
       'Custom domain support',
       'Unlimited media uploads',
@@ -99,7 +100,8 @@ export const FEATURES: PlanFeature[] = [
   { key: 'basic_themes', label: 'Basic Themes', free: true, pro: true, lifetime: true },
   { key: 'premium_themes', label: 'Premium Themes', free: false, pro: true, lifetime: true },
   { key: 'remove_branding', label: 'Remove PRESSKIT Branding', free: false, pro: true, lifetime: true },
-  { key: 'analytics', label: 'Visitor Analytics', free: false, pro: true, lifetime: true },
+  { key: 'basic_audience', label: '7-day audience snapshot', free: true, pro: true, lifetime: true },
+  { key: 'analytics', label: 'Extended audience history', free: false, pro: true, lifetime: true },
   { key: 'pdf_export', label: 'PDF EPK Export', free: false, pro: true, lifetime: true },
   { key: 'custom_domain', label: 'Custom Domain', free: false, pro: true, lifetime: true },
   { key: 'unlimited_uploads', label: 'Unlimited Media Uploads', free: false, pro: true, lifetime: true },
@@ -128,6 +130,7 @@ export function canUseFeature(plan: Plan, feature: string): boolean {
   return featureConfig[plan];
 }
 
+/** 30- and 90-day history plus traffic sources. Every plan can see a 7-day audience snapshot. */
 export function canUseAnalytics(plan: Plan): boolean {
   return plan === 'pro' || plan === 'lifetime';
 }

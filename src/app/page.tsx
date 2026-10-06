@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PLANS, formatPrice, getYearlySavings } from "@/config/plans";
+import { LandingBeacon } from "@/components/marketing/landing-beacon";
 import { SiteFooter, SiteHeader } from "@/components/marketing/shell";
 
 const steps = [
-  { n: "01", title: "Introduce yourself", body: "Name, city, genre, and a bio you can actually say out loud." },
-  { n: "02", title: "Add the work", body: "Music, video, photos, shows, and the quotes you want in the room." },
-  { n: "03", title: "Publish the link", body: "A site for fans. An EPK for the industry. One address in your bio." },
+  { n: "01", title: "Name and link", body: "Your artist name, then presskit.app/you. We check if it is free." },
+  { n: "02", title: "Photo, music, socials", body: "Paste the links you already have. Skip anything you do not have yet." },
+  { n: "03", title: "You're live", body: "A real artist page. The EPK comes from the same profile." },
 ];
 
 const features = [
@@ -15,7 +16,7 @@ const features = [
   ["PDF export", "A printable one-sheet when someone asks for the deck."],
   ["Shows and tickets", "Upcoming dates stay separate from the ones you already played."],
   ["Press quotes", "Pull quotes, not a dump of logos."],
-  ["Private analytics", "Views and link clicks. No creepy tracking."],
+  ["Your audience", "Who listened, watched, and visited. Plain language."],
 ];
 
 const templates = [
@@ -29,6 +30,7 @@ const audiences = ["Rappers", "Singers", "Producers", "DJs", "Bands", "Touring i
 
 const faqs = [
   ["Do I need a designer?", "No. You enter the information once. PRESSKIT handles the layout."],
+  ["How long does it take?", "A name, a photo, and a couple of links. Most artists can publish in about five minutes from a phone."],
   ["Can I use my own domain?", "Custom domains are a Pro feature. Connection is handled with support while automated provisioning is finished."],
   ["Is the EPK just a PDF?", "You get a clean link at /epk and, on Pro, a downloadable PDF."],
   ["Do you take a cut of my music?", "No. PRESSKIT does not distribute music or collect royalties."],
@@ -38,15 +40,16 @@ const faqs = [
 export default function HomePage() {
   return (
     <main>
+      <LandingBeacon />
       <SiteHeader />
       <section className="px-5 pb-16 pt-8 md:px-10 md:pt-16">
         <p className="text-[11px] uppercase tracking-[0.35em] text-accent">For independent artists</p>
         <h1 className="display mt-4 max-w-5xl text-[clamp(3.2rem,10vw,7.4rem)] leading-[0.86]">
-          Your music deserves<br />more than a link-in-bio.
+          Your artist website.<br />Live in 5 minutes.
         </h1>
-        <p className="mt-6 max-w-xl text-lg text-muted">Build a professional artist website and EPK in minutes.</p>
+        <p className="mt-6 max-w-xl text-lg text-muted">Music. Videos. Shows. Socials. Booking. EPK. One link. No web design required.</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link href="/signup" className="bg-accent px-5 py-4 text-center text-sm font-medium text-black">Build your PRESSKIT</Link>
+          <Link href="/signup" className="bg-accent px-5 py-4 text-center text-sm font-medium text-black">Create yours free</Link>
           <Link href="/a/jaylensaint" className="border border-white/20 px-5 py-4 text-center text-sm">See an example</Link>
         </div>
       </section>

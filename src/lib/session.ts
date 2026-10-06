@@ -1,4 +1,5 @@
 export const DEMO_COOKIE = "pk_demo_session";
+export const REF_COOKIE = "pk_ref";
 
 function bytesToBase64Url(bytes: Uint8Array) {
   let binary = "";

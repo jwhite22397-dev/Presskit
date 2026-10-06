@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { FoundingCodeForm } from "@/components/admin/founding-form";
 import { GrantForm } from "@/components/admin/grant-form";
 import { getSessionUser } from "@/server/auth";
 import { listDirectory } from "@/server/artists";
+import { listFoundingCodes } from "@/server/founding";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +11,11 @@ export default async function AdminPage() {
   const user = await getSessionUser();
   if (!user?.isAdmin) redirect("/dashboard");
   let rows: Awaited<ReturnType<typeof listDirectory>> = [];
+  let codes: Awaited<ReturnType<typeof listFoundingCodes>> = [];
   let error: string | null = null;
   try {
     rows = await listDirectory();
+    codes = await listFoundingCodes(user.id);
   } catch (caught) {
     error = caught instanceof Error ? caught.message : "Could not load accounts.";
   }
@@ -36,6 +40,17 @@ export default async function AdminPage() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="mt-10 grid gap-6">
+        <FoundingCodeForm />
+        <ul className="grid gap-3 text-sm">
+          {codes.map((code) => (
+            <li key={code.id} className="border border-line px-3 py-3">
+              <p>{code.code} · {code.entitlement} · {code.redemption_count}/{code.max_redemptions}{code.active ? "" : " · inactive"}</p>
+              <p className="text-xs text-muted">{code.redeemers.length ? code.redeemers.join(", ") : "No redemptions yet."}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </main>
   );

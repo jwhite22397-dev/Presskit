@@ -6,6 +6,7 @@ export async function POST(request: Request) {
   const body = await request.text();
   try {
     await applyStripeEvent(body, request.headers.get("stripe-signature"));
+    trackProductEvent("pro_upgrade_completed");
     trackProductEvent("upgrade_completed");
     return NextResponse.json({ received: true });
   } catch (error) {
