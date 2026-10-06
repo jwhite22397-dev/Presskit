@@ -10,8 +10,8 @@ export default async function SitePage() {
   const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
   return (
     <main>
-      <h1 className="display text-5xl">Site</h1>
-      <p className="mt-2 text-muted">Edit the information. The template does the layout.</p>
+      <h1 className="display text-5xl">My page</h1>
+      <p className="mt-2 text-muted">Update your profile. PRESSKIT handles the layout.</p>
       <div className="mt-8"><SiteEditor data={artist} plan={user.plan} /></div>
     </main>
   );

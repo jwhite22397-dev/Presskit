@@ -6,12 +6,13 @@ import { QRCodeSVG } from "qrcode.react";
 import type { Plan } from "@/types";
 import { PLANS, formatPrice } from "@/config/plans";
 import { artistUrl } from "@/lib/utils";
-import { changePasswordAction, checkoutAction, deleteAccountAction, domainAction, portalAction, simulatePlanAction, updateAccountAction } from "@/app/actions";
+import { changePasswordAction, checkoutAction, deleteAccountAction, domainAction, portalAction, redeemFoundingCodeAction, simulatePlanAction, updateAccountAction } from "@/app/actions";
 
 export function AccountPanel({
   name,
   email,
   plan,
+  planSource,
   slug,
   published,
   simulate,
@@ -19,6 +20,7 @@ export function AccountPanel({
   name: string;
   email: string;
   plan: Plan;
+  planSource: string;
   slug: string;
   published: boolean;
   simulate: boolean;
@@ -45,6 +47,13 @@ export function AccountPanel({
 
   return (
     <div className="grid max-w-xl gap-10">
+      {planSource === "founding" ? (
+        <section className="border border-accent/40 px-4 py-4">
+          <p className="text-xs uppercase tracking-[0.28em] text-accent">Founding Artist</p>
+          <p className="mt-2">{plan === "lifetime" ? "Lifetime PRESSKIT Pro" : "PRESSKIT Pro"}</p>
+          <p className="mt-1 text-sm text-muted">Thank you for helping build PRESSKIT.</p>
+        </section>
+      ) : null}
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
       {message ? <p className="text-sm text-accent">{message}</p> : null}
       <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); run(() => updateAccountAction(String(new FormData(event.currentTarget).get("name")))); }}>
@@ -58,6 +67,15 @@ export function AccountPanel({
         <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Password</h2>
         <input name="password" type="password" minLength={8} required className="border border-line bg-transparent px-3 py-3" placeholder="New password" />
         <button className="justify-self-start border border-white px-4 py-2 text-sm">Update password</button>
+      </form>
+
+      <form className="grid gap-3" onSubmit={(event) => {
+        event.preventDefault();
+        run(() => redeemFoundingCodeAction(String(new FormData(event.currentTarget).get("code"))));
+      }}>
+        <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Founding code</h2>
+        <input name="code" placeholder="FOUNDING-XXXX" autoCapitalize="characters" className="border border-line bg-transparent px-3 py-3" />
+        <button className="justify-self-start border border-white px-4 py-3 text-sm" disabled={pending}>Redeem</button>
       </form>
 
       <section>

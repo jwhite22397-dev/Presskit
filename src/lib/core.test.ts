@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { aggregateAnalytics } from "@/lib/analytics";
+import { aggregateAnalytics, audienceStory } from "@/lib/analytics";
 import { calculateCompleteness } from "@/lib/completeness";
 import { videoEmbed, spotifyEmbed } from "@/lib/embeds";
+import { assessFoundingCode } from "@/lib/founding";
+import { DeterministicArtistOptimizationService, FutureAIArtistOptimizationService } from "@/lib/optimization";
+import { referralSlug } from "@/lib/referral";
+import { releaseEyebrow, releaseStatus } from "@/lib/releases";
+import { explainPresskitScore } from "@/lib/score";
 import { canDownloadPDF, canRemoveBranding, canUseAnalytics, canUsePremiumTheme } from "@/config/plans";
 import { isReservedSlug, normalizeSlug, validateSlug } from "@/lib/slug";
 import { toPublicArtist } from "@/lib/serialize";
@@ -64,6 +69,7 @@ describe("completeness and privacy", () => {
       ...demoArtistData,
       site: {
         ...demoArtistData.site,
+        artist_name: "",
         booking_email: null,
         profile_image_url: null,
         hero_image_url: null,
@@ -72,9 +78,10 @@ describe("completeness and privacy", () => {
       },
       releases: [],
       socials: [],
-      press: [],
       shows: [],
       gallery: [],
+      videos: [],
+      highlights: [],
     });
     expect(result.percentage).toBe(0);
     expect(result.items.find((item) => item.key === "booking")?.recommendation).toMatch(/promoters/i);
@@ -105,6 +112,89 @@ describe("analytics", () => {
     expect(summary.top_links[0]).toEqual({ label: "Spotify", clicks: 1 });
     expect(summary.views_by_day).toHaveLength(7);
     expect(summary.sources[0]?.source).toBe("instagram.com");
+  });
+
+  it("tells the audience story in musician language", () => {
+    const now = new Date("2026-10-06T12:00:00.000Z");
+    const events: AnalyticsEvent[] = [
+      event("page_view", "2026-10-06T01:00:00.000Z", { visitor_id: "11111111-1111-4111-8111-111111111111" }),
+      event("music_click", "2026-10-06T01:10:00.000Z", { label: "Spotify" }),
+      event("video_click", "2026-10-06T01:20:00.000Z", { label: "Live" }),
+      event("social_click", "2026-10-06T01:30:00.000Z", { label: "Instagram" }),
+      event("booking_click", "2026-10-06T01:40:00.000Z", { label: "Booking" }),
+    ];
+    const story = audienceStory(events, 7, now);
+    expect(story.visitors).toBe(1);
+    expect(story.listened).toBe(1);
+    expect(story.watched).toBe(1);
+    expect(story.instagram).toBe(1);
+    expect(story.booking).toBe(1);
+    expect(story.topDestination).toBe("Spotify");
+    expect(story.actions).toBe(4);
+    expect(story.fanActionRate).toBe(100);
+  });
+});
+
+describe("referrals, founding codes, and releases", () => {
+  it("accepts only public artist slugs as referrals", () => {
+    expect(referralSlug("jaylensaint")).toBe("jaylensaint");
+    expect(referralSlug("Draft-abc")).toBeNull();
+    expect(referralSlug("../admin")).toBeNull();
+    expect(referralSlug("ab")).toBeNull();
+  });
+
+  it("rejects expired, inactive, and exhausted founding codes", () => {
+    const base = { active: true, expires_at: null, redemption_count: 0, max_redemptions: 1, alreadyRedeemed: false };
+    expect(assessFoundingCode(base, new Date("2026-10-06")).ok).toBe(true);
+    expect(assessFoundingCode({ ...base, active: false }).ok).toBe(false);
+    expect(assessFoundingCode({ ...base, expires_at: "2026-01-01T00:00:00.000Z" }, new Date("2026-10-06")).ok).toBe(false);
+    expect(assessFoundingCode({ ...base, redemption_count: 1 }).ok).toBe(false);
+    expect(assessFoundingCode({ ...base, alreadyRedeemed: true }).ok).toBe(false);
+  });
+
+  it("treats a missing release status as already out", () => {
+    expect(releaseStatus({})).toBe("released");
+    expect(releaseEyebrow({ type: "single", release_date: "2026-11-01", release_status: "announced" })).toMatch(/Coming/);
+    expect(releaseEyebrow({ type: "single", release_date: null, release_status: "released" })).toBe("single");
+  });
+});
+
+describe("future optimization", () => {
+  it("gives a reason for each deterministic recommendation", () => {
+    const tips = new DeterministicArtistOptimizationService().recommend({
+      ...demoArtistData,
+      site: { ...demoArtistData.site, booking_email: null, short_bio: null, full_bio: null },
+      releases: [],
+      videos: [],
+      shows: [],
+      gallery: [],
+      socials: [],
+      press: [],
+      highlights: [],
+    });
+    expect(tips.length).toBeGreaterThan(0);
+    expect(tips.every((tip) => tip.reason.length > 10 && tip.href.startsWith("/dashboard"))).toBe(true);
+  });
+
+  it("does not pretend the future model is available", () => {
+    expect(() => new FutureAIArtistOptimizationService().recommend(demoArtistData)).toThrow(/not enabled/);
+  });
+
+  it("leaves fan conversion empty until there is enough traffic", () => {
+    const score = explainPresskitScore({
+      completeness: 40,
+      hasBooking: false,
+      hasPress: false,
+      hasPhotos: false,
+      hasBio: false,
+      visitors: 3,
+      fanActionRate: 100,
+      hasMusic: true,
+      hasSocials: false,
+      hasHero: false,
+    });
+    expect(score.dimensions.find((item) => item.key === "fan_conversion")?.score).toBeNull();
+    expect(JSON.stringify(score)).not.toMatch(/better than/i);
   });
 });
 

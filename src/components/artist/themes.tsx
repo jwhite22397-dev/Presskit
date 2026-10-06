@@ -35,7 +35,7 @@ function Night({ data }: { data: PublicArtistData }) {
         <div className="relative z-10 flex items-center justify-between px-5 py-5 text-xs uppercase tracking-[0.28em] md:px-12">
           <span>{site.city}</span>
           <div className="flex items-center gap-5">
-            <a href={`/a/${site.slug}/epk`}>EPK</a>
+            <a href={`/a/${site.slug}/epk`}>Press / Booking</a>
             <ShareBar slug={site.slug} name={site.artist_name} className="uppercase tracking-[0.28em]" />
           </div>
         </div>
@@ -62,7 +62,7 @@ function Night({ data }: { data: PublicArtistData }) {
       {sections.map((id) => <SectionBlock key={id} id={id} data={data} look="night" />)}
       <footer className="flex flex-col gap-6 border-t border-white/10 px-5 py-10 md:px-12">
         <SocialRow data={data} className="flex flex-wrap gap-x-5 gap-y-2" />
-        <MadeWith plan={data.plan} />
+        <MadeWith plan={data.plan} slug={data.site.slug} />
       </footer>
     </article>
   );
@@ -78,7 +78,7 @@ function Editorial({ data }: { data: PublicArtistData }) {
         <div className="order-2 flex flex-col justify-between px-5 py-8 md:order-1 md:px-12 md:py-10">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em]">
             <span>{site.genre}</span>
-            <a href={`/a/${site.slug}/epk`}>EPK</a>
+            <a href={`/a/${site.slug}/epk`}>Press / Booking</a>
           </div>
           <div className="py-16">
             <h1 className="pk-heading text-[clamp(4rem,8vw,7.5rem)] leading-[0.82]">{site.artist_name}</h1>
@@ -101,7 +101,7 @@ function Editorial({ data }: { data: PublicArtistData }) {
       {sections.map((id) => <SectionBlock key={id} id={id} data={data} look="editorial" />)}
       <footer className="bg-black px-5 py-10 text-white md:px-12">
         <SocialRow data={data} className="flex flex-wrap gap-x-5 gap-y-2" />
-        <MadeWith plan={data.plan} />
+        <MadeWith plan={data.plan} slug={data.site.slug} />
       </footer>
     </article>
   );
@@ -115,7 +115,7 @@ function Minimal({ data }: { data: PublicArtistData }) {
     <article style={frameStyle(site.font_pairing, site.accent_color, "#171717")} className="min-h-screen bg-[#f6f5f2] text-[#1a1a1a]">
       <header className="mx-auto flex min-h-[100svh] max-w-xl flex-col items-center justify-center px-6 py-20 text-center">
         <div className="mb-8 flex w-full items-center justify-between text-[11px] uppercase tracking-[0.28em] text-neutral-500">
-          <a href={`/a/${site.slug}/epk`}>EPK</a>
+          <a href={`/a/${site.slug}/epk`}>Press / Booking</a>
           <ShareBar slug={site.slug} name={site.artist_name} />
         </div>
         {site.profile_image_url || site.hero_image_url ? (
@@ -135,7 +135,7 @@ function Minimal({ data }: { data: PublicArtistData }) {
       {sections.map((id) => <SectionBlock key={id} id={id} data={data} look="minimal" />)}
       <footer className="mx-auto max-w-xl px-6 py-12 text-center">
         <SocialRow data={data} className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-neutral-500" />
-        <MadeWith plan={data.plan} />
+        <MadeWith plan={data.plan} slug={data.site.slug} />
       </footer>
     </article>
   );
@@ -153,7 +153,7 @@ function Neon({ data }: { data: PublicArtistData }) {
         <div className="relative flex items-center justify-between text-[11px] uppercase tracking-[0.28em] text-cyan-100">
           <span>{site.city}</span>
           <div className="flex items-center gap-4">
-            <a href={`/a/${site.slug}/epk`}>EPK</a>
+            <a href={`/a/${site.slug}/epk`}>Press / Booking</a>
             <ShareBar slug={site.slug} name={site.artist_name} />
           </div>
         </div>
@@ -178,7 +178,7 @@ function Neon({ data }: { data: PublicArtistData }) {
       {sections.map((id) => <SectionBlock key={id} id={id} data={data} look="neon" />)}
       <footer className="border-t border-cyan-200/15 px-5 py-10 md:px-12">
         <SocialRow data={data} className="flex flex-wrap gap-x-5 gap-y-2 text-cyan-100" />
-        <MadeWith plan={data.plan} />
+        <MadeWith plan={data.plan} slug={data.site.slug} />
       </footer>
     </article>
   );

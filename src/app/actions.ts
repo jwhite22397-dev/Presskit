@@ -1,9 +1,14 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { canSimulateBilling, isAdminUser } from "@/lib/server-env";
+import { calculateCompleteness } from "@/lib/completeness";
+import { generateFoundingCode, isFoundingCodeShape, normalizeFoundingCode } from "@/lib/founding";
 import { trackProductEvent } from "@/lib/product-analytics";
+import { referralSlug } from "@/lib/referral";
+import { REF_COOKIE } from "@/lib/session";
 import { sendTransactionalEmail } from "@/server/email";
 import {
   aboutSchema,
@@ -32,6 +37,7 @@ import {
   deleteOwnAccount,
   getSessionUser,
   loginWithPassword,
+  userCreatedAt,
   logout,
   requestPasswordReset,
   resetDemoPassword,
@@ -50,17 +56,21 @@ import {
   changeSlug,
   deleteById,
   getOwnedArtist,
+  inspectSlug,
   moveGallery,
   patchOwnedSite,
   requestCustomDomain,
+  saveListeningLinks,
   saveRelease,
   saveSupportMessage,
+  setPortrait,
   setPublished,
   setUserPlan,
   storeImage,
   themeError,
 } from "@/server/artists";
 import { createCheckout, createPortal, simulatePlan } from "@/server/billing";
+import { createFoundingCode, redeemFoundingCode } from "@/server/founding";
 import type { Plan, ThemeName } from "@/types";
 
 export interface ActionState {
@@ -105,9 +115,12 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
     password: formData.get("password"),
   });
   if (!parsed.success) return issue(parsed.error);
-  const result = await signupWithPassword(parsed.data);
+  const jar = await cookies();
+  const referredBy = referralSlug(formData.get("ref")) ?? referralSlug(jar.get(REF_COOKIE)?.value);
+  const result = await signupWithPassword({ ...parsed.data, referredBySlug: referredBy });
   if (!result.ok) return result;
   trackProductEvent("signup_completed");
+  if (referredBy) trackProductEvent("referral_signup", { slug: referredBy, source: "artist_page" });
   await sendTransactionalEmail({ to: parsed.data.email, template: "welcome", variables: { name: parsed.data.name } });
   if ("needsConfirmation" in result && result.needsConfirmation) {
     return { ok: true, needsConfirmation: true, message: "Check your email to confirm your account, then sign in." };
@@ -164,6 +177,7 @@ export async function saveIdentityAction(input: unknown): Promise<ActionState> {
     tagline: parsed.data.tagline || null,
   });
   if (!result.ok) return result;
+  trackProductEvent("artist_name_entered");
   refresh(artist.site.slug);
   return { ok: true };
 }
@@ -245,6 +259,7 @@ export async function setSlugAction(slugInput: string): Promise<ActionState> {
     const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
     const result = await changeSlug(user.id, slug);
     if (!result.ok) return result;
+    trackProductEvent("slug_claimed", { slug });
     refresh(artist.site.slug);
     refresh(slug);
     return { ok: true, message: slug };
@@ -258,9 +273,16 @@ export async function publishAction(published: boolean): Promise<ActionState> {
   const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
   const result = await setPublished(user.id, published);
   if (!result.ok) return result;
-  if (published) trackProductEvent("site_published", { slug: artist.site.slug });
+  if (published) {
+    const started = new Date((await userCreatedAt(user.id)) ?? artist.site.created_at).getTime();
+    const seconds = Math.max(0, Math.round((Date.now() - started) / 1000));
+    const completeness = calculateCompleteness(artist);
+    trackProductEvent("page_published", { slug: artist.site.slug });
+    trackProductEvent("time_to_publish", { seconds, within_five_minutes: seconds <= 300 });
+    trackProductEvent("profile_completion_percentage", { percentage: completeness.percentage });
+  }
   refresh(artist.site.slug);
-  return { ok: true };
+  return { ok: true, message: artist.site.slug };
 }
 
 export async function uploadAction(formData: FormData): Promise<ActionState & { url?: string }> {
@@ -293,6 +315,7 @@ export async function setImageAction(kind: "profile" | "hero" | "cover", url: st
     const result = await patchOwnedSite(user.id, kind === "profile" ? { profile_image_url: url } : { hero_image_url: url });
     if (!result.ok) return result;
   }
+  if (kind === "profile" || kind === "hero") trackProductEvent("photo_uploaded");
   refresh(artist.site.slug);
   return { ok: true, url };
 }
@@ -304,6 +327,7 @@ export async function saveReleaseAction(input: unknown): Promise<ActionState> {
   try {
     const links = parsed.data.links.map((link) => ({ platform: link.platform, url: parseRequiredUrl(link.url) }));
     const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
+    const prerelease = parsed.data.prerelease_url ? parseOptionalUrl(parsed.data.prerelease_url) : null;
     const result = await saveRelease(user.id, user.plan, {
       id: typeof input === "object" && input && "id" in input ? String((input as { id?: string }).id || "") || undefined : undefined,
       title: parsed.data.title,
@@ -311,10 +335,14 @@ export async function saveReleaseAction(input: unknown): Promise<ActionState> {
       release_date: parsed.data.release_date || null,
       description: parsed.data.description || null,
       is_featured: Boolean(parsed.data.is_featured),
+      release_status: parsed.data.release_status ?? "released",
+      announcement_date: parsed.data.announcement_date || null,
+      prerelease_url: prerelease,
       links,
     });
     if (!result.ok) return result;
     trackProductEvent("release_added");
+    trackProductEvent("music_added");
     refresh(artist.site.slug);
     return { ok: true };
   } catch (error) {
@@ -402,6 +430,7 @@ export async function saveSocialAction(input: unknown): Promise<ActionState> {
     const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
     const result = await addSocial(user.id, { platform: parsed.data.platform, url: parseRequiredUrl(parsed.data.url) });
     if (!result.ok) return result;
+    trackProductEvent("social_added", { platform: parsed.data.platform });
     refresh(artist.site.slug);
     return { ok: true };
   } catch (error) {
@@ -483,6 +512,7 @@ export async function deleteAccountAction(confirmation: string): Promise<ActionS
 
 export async function checkoutAction(interval: "monthly" | "yearly" | "lifetime"): Promise<ActionState> {
   const user = await requireSession();
+  trackProductEvent("pro_upgrade_started", { interval });
   trackProductEvent("upgrade_started", { interval });
   const result = await createCheckout({ userId: user.id, email: user.email, interval });
   if (!result.ok) return result;
@@ -512,6 +542,85 @@ export async function grantPlanAction(userId: string, plan: Plan): Promise<Actio
   if (!result.ok) return result;
   revalidatePath("/admin");
   return { ok: true };
+}
+
+export async function checkSlugAction(raw: string): Promise<ActionState & { status?: "available" | "yours" | "taken" | "invalid" }> {
+  const user = await requireSession();
+  const result = await inspectSlug(user.id, raw);
+  return { ok: true, status: result.status, error: result.status === "invalid" ? result.reason : undefined, message: "slug" in result ? result.slug : undefined };
+}
+
+export async function saveListeningLinksAction(links: { platform: string; url: string }[]): Promise<ActionState> {
+  const user = await requireSession();
+  const parsed = releaseSchema.shape.links.safeParse(links);
+  if (!parsed.success) return issue(parsed.error);
+  try {
+    const clean = parsed.data.map((link) => ({ platform: link.platform, url: parseRequiredUrl(link.url) }));
+    const result = await saveListeningLinks(user.id, user.plan, clean);
+    if (!result.ok) return result;
+    if (clean.length) trackProductEvent("music_added");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Enter a valid music link." };
+  }
+}
+
+export async function saveSocialsAction(links: { platform: string; url: string }[]): Promise<ActionState> {
+  const user = await requireSession();
+  const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
+  const existing = new Set(artist.socials.map((item) => item.platform));
+  for (const link of links) {
+    const url = String(link.url ?? "").trim();
+    if (!url) continue;
+    const parsed = socialSchema.safeParse(link);
+    if (!parsed.success) return issue(parsed.error);
+    if (existing.has(parsed.data.platform)) continue;
+    try {
+      const result = await addSocial(user.id, { platform: parsed.data.platform, url: parseRequiredUrl(parsed.data.url) });
+      if (!result.ok) return result;
+      existing.add(parsed.data.platform);
+      trackProductEvent("social_added", { platform: parsed.data.platform });
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Enter a valid social link." };
+    }
+  }
+  refresh(artist.site.slug);
+  return { ok: true };
+}
+
+export async function setPortraitAction(url: string): Promise<ActionState> {
+  const user = await requireSession();
+  if (!url.startsWith("/") && !url.startsWith("https://")) return { ok: false, error: "That image could not be saved." };
+  const artist = await getOwnedArtist(user.id, user.plan, user.displayName);
+  const result = await setPortrait(user.id, url);
+  if (!result.ok) return result;
+  trackProductEvent("photo_uploaded");
+  refresh(artist.site.slug);
+  return { ok: true };
+}
+
+export async function redeemFoundingCodeAction(raw: string): Promise<ActionState> {
+  const user = await requireSession();
+  const result = await redeemFoundingCode(user.id, user.plan, raw);
+  if (!result.ok) return result;
+  trackProductEvent("founding_code_redeemed", { entitlement: result.entitlement });
+  revalidatePath("/dashboard");
+  return { ok: true, message: result.entitlement === "lifetime" ? "Lifetime PRESSKIT Pro is on your account." : "PRESSKIT Pro is on your account." };
+}
+
+export async function createFoundingCodeAction(input: { code?: string; entitlement: "pro" | "lifetime"; maxRedemptions: number; expiresAt?: string }): Promise<ActionState> {
+  const user = await requireSession();
+  const code = input.code?.trim() ? normalizeFoundingCode(input.code) : generateFoundingCode();
+  if (!isFoundingCodeShape(code)) return { ok: false, error: "Use a code like FOUNDING-AB12." };
+  const result = await createFoundingCode(user.id, {
+    code,
+    entitlement: input.entitlement,
+    maxRedemptions: Number(input.maxRedemptions),
+    expiresAt: input.expiresAt || null,
+  });
+  if (!result.ok) return result;
+  revalidatePath("/admin");
+  return { ok: true, message: result.code };
 }
 
 export async function domainAction(hostname: string): Promise<ActionState> {

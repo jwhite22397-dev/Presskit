@@ -100,15 +100,15 @@ export function SiteEditor({ data, plan }: { data: ArtistData; plan: Plan }) {
       </section>
 
       <section className="grid gap-4">
-        <h2 className="text-xs uppercase tracking-[0.22em] text-muted">Template</h2>
+        <h2 className="text-xs uppercase tracking-[0.22em] text-muted">Choose your vibe</h2>
         <div className="grid gap-3 md:grid-cols-2">
           {Object.values(THEMES).map((item) => {
             const locked = !canUsePremiumTheme(plan, item.id);
             return (
               <button key={item.id} type="button" onClick={() => setTheme(item.id)} className={`border p-4 text-left ${theme === item.id ? "border-accent" : "border-line"}`}>
-                <span className="text-lg">{item.name}</span>
+                <span className="text-lg">{item.vibe}</span>
                 {item.isPremium ? <span className="ml-2 text-xs uppercase tracking-[0.16em] text-accent">Pro</span> : null}
-                <p className="mt-2 text-sm text-muted">{locked ? "This template is Pro." : item.description}</p>
+                <p className="mt-2 text-sm text-muted">{locked ? "Bold is part of Pro." : item.name}</p>
               </button>
             );
           })}
@@ -118,20 +118,23 @@ export function SiteEditor({ data, plan }: { data: ArtistData; plan: Plan }) {
             <button key={color.id} type="button" onClick={() => setAccent(color.value)} className={`h-9 w-9 border ${accent === color.value ? "border-white" : "border-transparent"}`} style={{ background: color.value === "theme" ? "#e4ff4a" : color.value }} aria-label={color.label} />
           ))}
         </div>
-        <label className="text-sm">Font pairing
-          <select value={font} onChange={(event) => setFont(event.target.value)} className="mt-2 w-full border border-line bg-black px-3 py-3">
-            {FONT_PAIRINGS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-        </label>
-        <fieldset className="grid gap-2 text-sm">
-          <legend className="text-xs uppercase tracking-[0.18em] text-muted">Hide sections</legend>
-          {["music", "videos", "about", "shows", "press", "gallery", "highlights", "contact"].map((section) => (
-            <label key={section} className="flex items-center gap-2 capitalize">
-              <input type="checkbox" checked={hidden.includes(section)} onChange={(event) => setHidden((current) => event.target.checked ? [...current, section] : current.filter((item) => item !== section))} />
-              {section}
-            </label>
-          ))}
-        </fieldset>
+        <details className="text-sm">
+          <summary className="cursor-pointer text-muted">More options</summary>
+          <label className="mt-3 block">Font pairing
+            <select value={font} onChange={(event) => setFont(event.target.value)} className="mt-2 w-full border border-line bg-black px-3 py-3">
+              {FONT_PAIRINGS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+          </label>
+          <fieldset className="mt-3 grid gap-2">
+            <legend className="text-xs uppercase tracking-[0.18em] text-muted">Hide empty-looking sections</legend>
+            {["music", "videos", "about", "shows", "press", "gallery", "highlights", "contact"].map((section) => (
+              <label key={section} className="flex items-center gap-2 capitalize">
+                <input type="checkbox" checked={hidden.includes(section)} onChange={(event) => setHidden((current) => event.target.checked ? [...current, section] : current.filter((item) => item !== section))} />
+                {section}
+              </label>
+            ))}
+          </fieldset>
+        </details>
         <button type="button" className="justify-self-start bg-accent px-4 py-2 text-sm text-black" disabled={pending} onClick={() => run(() => saveStyleAction({ theme, accent_color: accent, font_pairing: font, hidden_sections: hidden }))}>Save style</button>
       </section>
 

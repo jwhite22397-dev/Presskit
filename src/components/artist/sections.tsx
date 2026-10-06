@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { videoEmbed } from "@/lib/embeds";
 import type { PublicArtistData } from "@/lib/serialize";
 import { formatDate } from "@/lib/utils";
 import { splitShows } from "@/lib/shows";
 import { PLATFORM_LABELS, type SectionId } from "@/components/artist/content";
-import { GalleryGrid, TrackedLink } from "@/components/artist/widgets";
+import { canRemoveBranding } from "@/config/plans";
+import { releaseEyebrow, isUnreleased } from "@/lib/releases";
+import { GalleryGrid, MadeWithPresskit, TrackedLink } from "@/components/artist/widgets";
 import type { AnalyticsEventType } from "@/types";
 
 export type Look = "editorial" | "night" | "minimal" | "neon";
@@ -38,15 +39,28 @@ function Music({ data, look }: { data: PublicArtistData; look: Look }) {
     <section className="px-5 py-16 md:px-12 md:py-24">
       <p className={labelClass()}>Music</p>
       {featured ? (
-        <div className={look === "minimal" ? "mt-8 grid gap-8 md:grid-cols-[180px_1fr]" : "mt-8 grid gap-8 md:grid-cols-[minmax(0,280px)_1fr] md:items-end"}>
-          <div className={look === "minimal" ? "aspect-square overflow-hidden rounded-full" : look === "neon" ? "aspect-square overflow-hidden rounded-2xl border border-cyan-300/30" : "aspect-square overflow-hidden"}>
-            {featured.cover_url ? <img src={featured.cover_url} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-current/10" />}
-          </div>
+        <div className={featured.cover_url ? (look === "minimal" ? "mt-8 grid gap-8 md:grid-cols-[180px_1fr]" : "mt-8 grid gap-8 md:grid-cols-[minmax(0,280px)_1fr] md:items-end") : "mt-8"}>
+          {featured.cover_url ? (
+            <div className={look === "minimal" ? "aspect-square overflow-hidden rounded-full" : look === "neon" ? "aspect-square overflow-hidden rounded-2xl border border-cyan-300/30" : "aspect-square overflow-hidden"}>
+              <img src={featured.cover_url} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : null}
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-[var(--pk-accent)]">{featured.type}</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-[var(--pk-accent)]">{releaseEyebrow(featured)}</p>
             <h2 className={`mt-3 ${headingClass(look)}`}>{featured.title}</h2>
             {featured.description ? <p className="mt-4 max-w-xl text-base leading-relaxed opacity-75">{featured.description}</p> : null}
             <div className="mt-6 flex flex-wrap gap-2">
+              {isUnreleased(featured) && featured.prerelease_url ? (
+                <TrackedLink
+                  slug={data.site.slug}
+                  href={featured.prerelease_url}
+                  eventType="music_click"
+                  label={featured.title}
+                  className={look === "night" || look === "neon" ? "border border-white/30 px-4 py-2 text-sm hover:bg-white hover:text-black" : "border border-black px-4 py-2 text-sm hover:bg-black hover:text-white"}
+                >
+                  Details
+                </TrackedLink>
+              ) : null}
               {featured.links.map((link) => (
                 <TrackedLink
                   key={link.id}
@@ -71,7 +85,7 @@ function Music({ data, look }: { data: PublicArtistData; look: Look }) {
               {release.cover_url ? <img src={release.cover_url} alt="" className="h-14 w-14 object-cover" /> : null}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-[family-name:var(--pk-heading)] text-2xl">{release.title}</p>
-                <p className="text-xs uppercase tracking-[0.18em] opacity-60">{release.type}{release.release_date ? ` · ${formatDate(release.release_date)}` : ""}</p>
+                <p className="text-xs uppercase tracking-[0.18em] opacity-60">{releaseEyebrow(release)}</p>
               </div>
               {release.links[0] ? (
                 <TrackedLink slug={data.site.slug} href={release.links[0].url} eventType="music_click" label={release.title} className="text-sm underline">
@@ -236,13 +250,9 @@ function Contact({ data }: { data: PublicArtistData; look: Look }) {
   );
 }
 
-export function MadeWith({ plan }: { plan: PublicArtistData["plan"] }) {
-  if (plan !== "free") return null;
-  return (
-    <p className="px-5 py-8 text-center text-[11px] uppercase tracking-[0.28em] opacity-50">
-      Made with <Link href="/" className="underline">PRESSKIT</Link>
-    </p>
-  );
+export function MadeWith({ plan, slug }: { plan: PublicArtistData["plan"]; slug: string }) {
+  if (canRemoveBranding(plan)) return null;
+  return <MadeWithPresskit slug={slug} />;
 }
 
 export function SocialRow({ data, className }: { data: PublicArtistData; className?: string }) {

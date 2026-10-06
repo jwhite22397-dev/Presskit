@@ -70,3 +70,43 @@ export function aggregateAnalytics(events: AnalyticsEvent[], days: number, now =
       .slice(0, 5),
   };
 }
+
+export interface AudienceStory {
+  visitors: number;
+  visits: number;
+  actions: number;
+  listened: number;
+  watched: number;
+  instagram: number;
+  booking: number;
+  topDestination: string | null;
+  fanActionRate: number | null;
+}
+
+export function audienceStory(events: AnalyticsEvent[], days: number, now = new Date()): AudienceStory {
+  const summary = aggregateAnalytics(events, days, now);
+  const start = startOfRange(days, now);
+  const inRange = events.filter((event) => new Date(event.created_at) >= start);
+  const labelOf = (event: AnalyticsEvent) =>
+    event.event_data && typeof event.event_data.label === "string" ? event.event_data.label.toLowerCase() : "";
+  const instagram = inRange.filter((event) => event.event_type === "social_click" && labelOf(event).includes("instagram")).length;
+  const visitors = summary.unique_visitors || summary.total_views;
+  const actors = new Set(
+    inRange
+      .filter((event) => CLICK_TYPES.has(event.event_type))
+      .map((event) => (event.event_data && typeof event.event_data.visitor_id === "string" ? event.event_data.visitor_id : null))
+      .filter((id): id is string => Boolean(id)),
+  );
+  const actions = actors.size || summary.total_clicks;
+  return {
+    visitors,
+    visits: summary.total_views,
+    actions,
+    listened: inRange.filter((event) => event.event_type === "music_click").length,
+    watched: inRange.filter((event) => event.event_type === "video_click").length,
+    instagram,
+    booking: inRange.filter((event) => event.event_type === "booking_click").length,
+    topDestination: summary.top_links[0]?.label ?? null,
+    fanActionRate: visitors > 0 ? Math.min(100, Math.round((actions / visitors) * 100)) : null,
+  };
+}

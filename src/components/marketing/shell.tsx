@@ -7,7 +7,7 @@ export function SiteHeader() {
       <nav className="flex items-center gap-5 text-sm">
         <Link href="/#pricing" className="hidden sm:inline">Pricing</Link>
         <Link href="/login">Log in</Link>
-        <Link href="/signup" className="bg-accent px-3 py-2 text-black">Build yours</Link>
+        <Link href="/signup" className="bg-accent px-3 py-2 text-black">Start free</Link>
       </nav>
     </header>
   );
@@ -19,7 +19,7 @@ export function SiteFooter() {
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="tracking-[0.35em] text-foreground">PRESSKIT</p>
-          <p className="mt-2 max-w-xs">A professional artist website and electronic press kit.</p>
+          <p className="mt-2 max-w-xs">Your artist website, live in 5 minutes.</p>
         </div>
         <div className="flex gap-10">
           <div className="grid gap-2">

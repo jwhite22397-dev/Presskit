@@ -2,26 +2,33 @@
 
 import { useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { aggregateAnalytics } from "@/lib/analytics";
+import { aggregateAnalytics, audienceStory } from "@/lib/analytics";
 import type { AnalyticsEvent } from "@/types";
 
-export function AnalyticsPanel({ events }: { events: AnalyticsEvent[] }) {
-  const [days, setDays] = useState<7 | 30 | 90>(30);
-  const summary = useMemo(() => aggregateAnalytics(events, days), [events, days]);
+export function AnalyticsPanel({ events, extended }: { events: AnalyticsEvent[]; extended: boolean }) {
+  const [days, setDays] = useState<7 | 30 | 90>(7);
+  const range = extended ? days : 7;
+  const summary = useMemo(() => aggregateAnalytics(events, range), [events, range]);
+  const story = useMemo(() => audienceStory(events, range), [events, range]);
   return (
     <div>
-      <div className="flex gap-2">
-        {[7, 30, 90].map((value) => (
-          <button key={value} type="button" onClick={() => setDays(value as 7 | 30 | 90)} className={`px-3 py-2 text-sm ${days === value ? "bg-white text-black" : "border border-line"}`}>{value} days</button>
+      <div className="grid gap-3 text-sm sm:grid-cols-2">
+        <Line label="Visited" value={`${story.visitors} people`} />
+        <Line label="Took an action" value={String(story.actions)} />
+        <Line label="Listened" value={String(story.listened)} />
+        <Line label="Watched a video" value={String(story.watched)} />
+        <Line label="Opened Instagram" value={String(story.instagram)} />
+        <Line label="Checked booking" value={String(story.booking)} />
+      </div>
+      {story.topDestination ? <p className="mt-4 text-sm">{story.topDestination} was the #1 destination.</p> : null}
+      {story.fanActionRate !== null ? <p className="mt-2 text-sm"><span className="uppercase tracking-[0.16em] text-muted">Fan action rate </span>{story.fanActionRate}%</p> : null}
+
+      <div className="mt-8 flex gap-2">
+        {(extended ? [7, 30, 90] : [7]).map((value) => (
+          <button key={value} type="button" onClick={() => setDays(value as 7 | 30 | 90)} className={`px-3 py-2 text-sm ${range === value ? "bg-white text-black" : "border border-line"}`}>{value} days</button>
         ))}
       </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-4">
-        <Metric label="Views" value={summary.total_views} />
-        <Metric label="Visitors" value={summary.unique_visitors} />
-        <Metric label="Clicks" value={summary.total_clicks} />
-        <Metric label="EPK" value={summary.epk_views} />
-      </div>
-      <div className="mt-8 h-56">
+      <div className="mt-6 h-48">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={summary.views_by_day}>
             <XAxis dataKey="date" hide />
@@ -33,31 +40,33 @@ export function AnalyticsPanel({ events }: { events: AnalyticsEvent[] }) {
       </div>
       <div className="mt-8 grid gap-8 md:grid-cols-2">
         <div>
-          <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Top links</h2>
+          <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Destinations</h2>
           <ul className="mt-3 text-sm">
             {summary.top_links.length ? summary.top_links.map((link) => (
               <li key={link.label} className="flex justify-between border-b border-line py-2"><span>{link.label}</span><span>{link.clicks}</span></li>
-            )) : <li className="text-muted">No clicks in this range.</li>}
+            )) : <li className="text-muted">No actions in this range.</li>}
           </ul>
         </div>
-        <div>
-          <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Sources</h2>
-          <ul className="mt-3 text-sm">
-            {summary.sources.length ? summary.sources.map((source) => (
-              <li key={source.source} className="flex justify-between border-b border-line py-2"><span>{source.source}</span><span>{source.count}</span></li>
-            )) : <li className="text-muted">Direct visits, or referrers not sent.</li>}
-          </ul>
-        </div>
+        {extended ? (
+          <div>
+            <h2 className="text-xs uppercase tracking-[0.2em] text-muted">Where they came from</h2>
+            <ul className="mt-3 text-sm">
+              {summary.sources.length ? summary.sources.map((source) => (
+                <li key={source.source} className="flex justify-between border-b border-line py-2"><span>{source.source}</span><span>{source.count}</span></li>
+              )) : <li className="text-muted">Direct visits, or the last site did not share a referrer.</li>}
+            </ul>
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Line({ label, value }: { label: string; value: string }) {
   return (
-    <article className="border border-line p-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-muted">{label}</p>
-      <p className="mt-2 text-3xl">{value}</p>
-    </article>
+    <p className="border border-line px-3 py-3">
+      <span className="block text-xs uppercase tracking-[0.16em] text-muted">{label}</span>
+      <span className="mt-1 block text-xl">{value}</span>
+    </p>
   );
 }

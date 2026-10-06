@@ -20,6 +20,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           name={user.displayName || artist.site.artist_name}
           email={user.email}
           plan={user.plan}
+          planSource={user.planSource}
           slug={artist.site.slug}
           published={artist.site.status === "published"}
           simulate={canSimulateBilling()}

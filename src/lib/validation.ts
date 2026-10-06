@@ -52,10 +52,13 @@ export const styleSchema = z.object({
 
 export const releaseSchema = z.object({
   title: trimmed(120).min(1, "Title is required."),
-  type: z.enum(["single", "ep", "mixtape", "album"]),
+  type: z.enum(["single", "ep", "mixtape", "album", "other"]),
   release_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   description: trimmed(500).optional().or(z.literal("")),
   is_featured: z.boolean().optional(),
+  release_status: z.enum(["released", "announced", "prerelease"]).optional(),
+  announcement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  prerelease_url: z.string().trim().max(500).optional().or(z.literal("")),
   links: z
     .array(
       z.object({

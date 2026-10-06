@@ -15,11 +15,12 @@ function Field({ label, name, type = "text", autoComplete }: { label: string; na
   );
 }
 
-export function SignupForm() {
+export function SignupForm({ referral }: { referral?: string | null }) {
   const [state, action, pending] = useActionState(signupAction, initial);
   return (
     <form action={action} className="grid gap-4">
-      <Field label="Name" name="name" autoComplete="name" />
+      {referral ? <input type="hidden" name="ref" value={referral} /> : null}
+      <Field label="Artist name" name="name" autoComplete="nickname" />
       <Field label="Email" name="email" type="email" autoComplete="email" />
       <Field label="Password" name="password" type="password" autoComplete="new-password" />
       {state.error ? <p className="text-sm text-red-300">{state.error}</p> : null}

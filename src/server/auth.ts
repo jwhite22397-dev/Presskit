@@ -13,6 +13,7 @@ export interface SessionUser {
   email: string;
   displayName: string | null;
   plan: Plan;
+  planSource: DemoUser["plan_source"];
   subscriptionStatus: string | null;
   isAdmin: boolean;
 }
@@ -23,6 +24,7 @@ function toSession(user: DemoUser): SessionUser {
     email: user.email,
     displayName: user.display_name,
     plan: user.plan,
+    planSource: user.plan_source,
     subscriptionStatus: user.subscription_status,
     isAdmin: isAdminUser(user.id),
   };
@@ -60,7 +62,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (error || !data.user) return null;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, plan, subscription_status")
+    .select("display_name, plan, plan_source, subscription_status")
     .eq("id", data.user.id)
     .maybeSingle();
   return {
@@ -68,12 +70,24 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     email: data.user.email ?? "",
     displayName: profile?.display_name ?? null,
     plan: (profile?.plan as Plan) ?? "free",
+    planSource: (profile?.plan_source as DemoUser["plan_source"]) ?? "default",
     subscriptionStatus: profile?.subscription_status ?? null,
     isAdmin: isAdminUser(data.user.id),
   };
 }
 
-export async function signupWithPassword(input: { name: string; email: string; password: string }) {
+export async function userCreatedAt(userId: string) {
+  if (isDemoMode()) {
+    const state = await readState();
+    return state.users.find((item) => item.id === userId)?.created_at ?? null;
+  }
+  const supabase = await createServerSupabase();
+  const { data } = await supabase.from("profiles").select("created_at").eq("id", userId).maybeSingle();
+  return (data?.created_at as string | undefined) ?? null;
+}
+
+export async function signupWithPassword(input: { name: string; email: string; password: string; referredBySlug?: string | null }) {
+  const referredBy = input.referredBySlug || null;
   if (isDemoMode()) {
     const existing = await readState();
     if (existing.users.some((user) => user.email === input.email)) {
@@ -90,6 +104,10 @@ export async function signupWithPassword(input: { name: string; email: string; p
       stripe_customer_id: null,
       stripe_subscription_id: null,
       subscription_status: null,
+      referred_by_slug: referredBy,
+      referral_source: referredBy ? "artist_page" : null,
+      referred_at: referredBy ? now : null,
+      onboarding_started_at: now,
       created_at: now,
       updated_at: now,
     };
@@ -110,10 +128,24 @@ export async function signupWithPassword(input: { name: string; email: string; p
     },
   });
   if (error) return { ok: false as const, error: error.message };
-  if (!data.session) {
-    return { ok: true as const, userId: data.user?.id ?? "", needsConfirmation: true };
+  const userId = data.user?.id ?? "";
+  if (userId) {
+    try {
+      const admin = createServiceSupabase();
+      await admin.from("profiles").update({
+        referred_by_slug: referredBy,
+        referral_source: referredBy ? "artist_page" : null,
+        referred_at: referredBy ? new Date().toISOString() : null,
+        onboarding_started_at: new Date().toISOString(),
+      }).eq("id", userId);
+    } catch {
+      // Service role is required to write referral columns. The signup still succeeds.
+    }
   }
-  return { ok: true as const, userId: data.user?.id ?? "" };
+  if (!data.session) {
+    return { ok: true as const, userId, needsConfirmation: true };
+  }
+  return { ok: true as const, userId };
 }
 
 export async function loginWithPassword(input: { email: string; password: string }) {
